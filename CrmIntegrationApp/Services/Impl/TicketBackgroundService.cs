@@ -1,4 +1,5 @@
 ﻿using CrmIntegrationApp.Configurations;
+using CrmIntegrationApp.Exceptions;
 using Microsoft.Extensions.Options;
 
 namespace CrmIntegrationApp.Services.Impl
@@ -35,9 +36,17 @@ namespace CrmIntegrationApp.Services.Impl
                     _logger.LogInformation("Poll complited. Next run in {Interval} hours.", _pollingIntervalInHours.TotalHours);
 
                 }
+                catch (ExternalApiException ex)
+                {
+                    _logger.LogError(ex, "Periodic polling failed during crm API call.Next run in {Interval} hours.", _pollingIntervalInHours.TotalHours);
+                }
+                catch (TicketProcessingFailedException ex)
+                {
+                    _logger.LogError(ex, "Periodic polling failed during processing requested tickets. Next run in {Interval} hours.", _pollingIntervalInHours.TotalHours);
+                }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Periodic polling failed.");
+                    _logger.LogError(ex, "Periodic polling failed. Next run in {Interval} hours.", _pollingIntervalInHours.TotalHours);
                 }
 
                 await Task.Delay(_pollingIntervalInHours, stoppingToken);

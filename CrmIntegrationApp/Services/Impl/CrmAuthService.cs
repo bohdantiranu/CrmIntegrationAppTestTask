@@ -1,4 +1,5 @@
 ﻿using CrmIntegrationApp.Configurations;
+using CrmIntegrationApp.Exceptions;
 using CrmIntegrationApp.Helpers;
 using CrmIntegrationApp.Models;
 using Microsoft.Extensions.Options;
@@ -56,15 +57,15 @@ namespace CrmIntegrationApp.Services.Impl
             catch (HttpRequestException ex) 
             {
                 _logger.LogError(ex, "HTTP request error during Crm token acquisition. Status Code: {StatusCode}. Error: {ErrorMessage}",
-                    (int?)ex.StatusCode, ex.Message);
-                
-                return null;
+                (int?)ex.StatusCode, ex.Message);
+
+                throw new ExternalApiException("HTTP request error during Crm token acquisition.", ex.StatusCode, ex);
             }
             catch (Exception ex) 
             {
                 _logger.LogError(ex, "Failed to get AccessToken.Error: {ErrorMessage}", ex.Message);
-                
-                return null;
+
+                throw new AuthenticationFailedException("Failed to get AccessToken.", ex);
             }
         }
     }

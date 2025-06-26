@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using CrmIntegrationApp.Exceptions;
 using CrmIntegrationApp.Infrastructure.ApiClients;
 using CrmIntegrationApp.Models;
 
@@ -21,16 +22,40 @@ namespace CrmIntegrationApp.Services.Impl
         {
             _logger.LogInformation("Attempting to process Crm ticket {TicketId}.", crmTicket.Id);
 
-            var cxoneTicket = _mapper.Map<CxoneTicket>(crmTicket);
-            var isSuccess = await _cxoneApiClient.SendTicketAsync(cxoneTicket);
+            try
+            {
+                var cxoneTicket = _mapper.Map<CxoneTicket>(crmTicket);
+                var isSuccess = await _cxoneApiClient.SendTicketAsync(cxoneTicket);
 
-            if (isSuccess)
+                if (!isSuccess)
+                {
+                    _logger.LogError("Failed to process ticket {TicketId}.", crmTicket.Id);
+
+                    throw new TicketProcessingFailedException($"Failed to process ticket ticket {crmTicket.Id}.");
+                }
+
                 _logger.LogInformation("Successfully processed ticket {TicketId}.", crmTicket.Id);
 
-            else
-                _logger.LogError("Failed to process ticket {TicketId}.", crmTicket.Id);
+                return isSuccess;
+            }
+            catch (AuthenticationFailedException ex)
+            {
+                _logger.LogError("Failed to get CXone access token. Cant send ticket.");
 
-            return isSuccess;
+                throw new TicketProcessingFailedException("Failed to get CXone access token. Cant send ticket.", ex);
+            }
+            catch (ExternalApiException ex)
+            {
+                _logger.LogError(ex, "CXone API call failed during processing ticket {TicketId}. Status: {StatusCode}", crmTicket.Id, ex.StatusCode);
+
+                throw new TicketProcessingFailedException($"CXone API call failed during processing ticket {crmTicket.Id}.", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to process ticket {TicketId}.", crmTicket.Id);
+                
+                throw new TicketProcessingFailedException($"Failed to process ticket {crmTicket.Id}.", ex);
+            }
         }
     }
 }

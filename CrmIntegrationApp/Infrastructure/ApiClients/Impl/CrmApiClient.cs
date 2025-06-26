@@ -1,4 +1,5 @@
 ﻿using CrmIntegrationApp.Configurations;
+using CrmIntegrationApp.Exceptions;
 using CrmIntegrationApp.Models;
 using CrmIntegrationApp.Services;
 using Microsoft.Extensions.Options;
@@ -15,7 +16,8 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
         private readonly HttpClient _httpClient;
         private readonly CrmApiSettings _crmApiSettings;
 
-        public CrmApiClient(ICrmAuthService crmAuthService, ILogger<CrmApiClient> logger, HttpClient httpClient, IOptions<CrmApiSettings> crmApiOptions)
+        public CrmApiClient(ICrmAuthService crmAuthService, ILogger<CrmApiClient> logger, HttpClient httpClient, 
+            IOptions<CrmApiSettings> crmApiOptions)
         {
             _crmAuthService = crmAuthService;
             _logger = logger;
@@ -25,13 +27,6 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
 
         public async Task<IEnumerable<CrmTicket>> GetTicketsAsync()
         {
-            if (string.IsNullOrEmpty(_crmApiSettings.BaseUrl))
-            {
-                _logger.LogError("Failed to fetch tickets. Crm API base url is not set.");
-
-                return new List<CrmTicket>();
-            }
-
             string requestUrl = $"{_crmApiSettings.BaseUrl}/tickets";
 
             _logger.LogInformation("Attempting to fetch tickets from Crm. Request URL: {RequestUrl}", requestUrl);
@@ -43,8 +38,8 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogError("Failed to get Crm access token. Cant fetch tickets.");
-                    
-                    return new List<CrmTicket>();
+
+                    throw new AuthenticationFailedException($"Failed to get Crm access token. Cant fetch tickets.");
                 }
 
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -68,19 +63,19 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
             {
                 _logger.LogError(ex, "HTTP request failed. Error: {ErrorMessage}", ex.Message);
 
-                return new List<CrmTicket>();
+                throw new ExternalApiException($"HTTP request failed.", ex.StatusCode, ex);
             }
             catch (JsonException ex)
             {
                 _logger.LogError(ex, "Failed to deserialize response data. Error: {ErrorMessage}", ex.Message);
 
-                return new List<CrmTicket>();
+                throw new ExternalApiException("Crm authentication response is not valid JSON or unexpected format.", ex);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An unexpected error. Error: {ErrorMessage}", ex.Message);
 
-                return new List<CrmTicket>();
+                throw new CrmIntegrationException($"An unexpected error.", ex);
             }
         }
     }

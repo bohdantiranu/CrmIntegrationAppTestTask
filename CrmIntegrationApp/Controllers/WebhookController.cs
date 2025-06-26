@@ -1,10 +1,12 @@
 ﻿using CrmIntegrationApp.Configurations;
+using CrmIntegrationApp.Exceptions;
 using CrmIntegrationApp.Helpers;
 using CrmIntegrationApp.Models;
 using CrmIntegrationApp.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using System.Net;
 
 namespace CrmIntegrationApp.Controllers
 {
@@ -36,9 +38,14 @@ namespace CrmIntegrationApp.Controllers
             }
 
             _logger.LogInformation("Received new ticket {TicketId}", crmTicket.Id);
-
-            await _webhookProcessorService.ProcessWebhookTicketAsync(crmTicket);
-
+            try
+            {
+                await _webhookProcessorService.ProcessWebhookTicketAsync(crmTicket);
+            }
+            catch (TicketProcessingFailedException ex) 
+            {
+                return StatusCode((int)HttpStatusCode.InternalServerError, new { eror = ex.Message });
+            }
             return Ok();
         }
 

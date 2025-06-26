@@ -1,4 +1,5 @@
-﻿using CrmIntegrationApp.Infrastructure.ApiClients;
+﻿using CrmIntegrationApp.Exceptions;
+using CrmIntegrationApp.Infrastructure.ApiClients;
 
 namespace CrmIntegrationApp.Services.Impl
 {
@@ -18,23 +19,37 @@ namespace CrmIntegrationApp.Services.Impl
         public async Task ProcessTicketsAsync()
         {
             _logger.LogInformation("Starting periodic ticket polling from Crm.");
-
-            var crmTickets = await _crmApiClient.GetTicketsAsync();
-
-            if (crmTickets == null || !crmTickets.Any())
+            try
             {
-                _logger.LogWarning("No tickets received.");
-                
-                return;
+                var crmTickets = await _crmApiClient.GetTicketsAsync();
+
+                if (crmTickets == null || !crmTickets.Any())
+                {
+                    _logger.LogWarning("No tickets received.");
+
+                    return;
+                }
+
+                _logger.LogInformation("Received {TicketCount} tickets.", crmTickets.Count());
+
+                foreach (var crmTicket in crmTickets)
+                {
+                    _logger.LogInformation("Processing ticket {TicketId}.", crmTicket.Id);
+
+                    await _ticketProcessor.ProcessAsync(crmTicket);
+                }
             }
-
-            _logger.LogInformation("Received {TicketCount} tickets.", crmTickets.Count());
-
-            foreach (var crmTicket in crmTickets)
+            catch (ExternalApiException ex)
             {
-                _logger.LogInformation("Processing ticket {TicketId}.", crmTicket.Id);
+                _logger.LogError(ex, "Eror during crm API call.");
+
+                throw;
+            }
+            catch (TicketProcessingFailedException ex)
+            {
+                _logger.LogError(ex, "Failed during processing requested tickets.");
                 
-                await _ticketProcessor.ProcessAsync(crmTicket);
+                throw;
             }
         }
     }

@@ -1,4 +1,5 @@
 ﻿using CrmIntegrationApp.Configurations;
+using CrmIntegrationApp.Exceptions;
 using CrmIntegrationApp.Models;
 using CrmIntegrationApp.Services;
 using Microsoft.Extensions.Options;
@@ -29,13 +30,6 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
 
         public async Task<bool> SendTicketAsync(CxoneTicket ticket)
         {
-            if (string.IsNullOrEmpty(_cxoneApiSettings.BaseUrl))
-            {
-                _logger.LogError("Failed to send ticket. CXone API base url is not set.");
-                
-                return false;
-            }
-
             try
             {
                 var token = await _authService.GetAccessTokenAsync();
@@ -44,7 +38,7 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
                 {
                     _logger.LogError("Failed to get CXone access token. Cant send ticket.");
 
-                    return false;
+                    throw new AuthenticationFailedException("Failed to get CXone access token. Cant send ticket.");
                 }
 
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -67,8 +61,8 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
 
                     _logger.LogError("Failed to send ticket {TicketId} to CXone . Status Code: {StatusCode}. Error: {ErrorDescription}",
                         ticket.TicketId, (int)response.StatusCode, error);
-                    
-                    return false;
+
+                    throw new ExternalApiException($"CXone API call failed while sending ticket.", response.StatusCode, error);
                 }
 
                 _logger.LogInformation("Ticket {TicketId} successfully sent to CXone.", ticket.TicketId);
@@ -79,20 +73,20 @@ namespace CrmIntegrationApp.Infrastructure.ApiClients.Impl
             {
                 _logger.LogError(ex, "HTTP request failed for ticket {TicketId}. Error: {ErrorMessage}.", 
                     ticket.TicketId, ex.Message);
-                
-                return false;
+
+                throw new ExternalApiException($"HTTP request failed.", ex.StatusCode, ex);
             }
             catch (JsonException ex)
             {
                 _logger.LogError(ex, "Failed to serialization ticket {TicketId}. Error: {ErrorMessage}", ticket.TicketId, ex.Message);
-                
-                return false;
+
+                throw new TicketProcessingFailedException("Failed to serialization ticket {TicketId}.", ex);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An unexpected error occurred. Ticket {TicketId}. Error: {ErrorMessage}", ticket.TicketId, ex.Message);
-                
-                return false;
+
+                throw new CrmIntegrationException($"An unexpected error.", ex);
             }
         }
     }
