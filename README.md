@@ -13,7 +13,6 @@ Http request every 5 hours(can be changed in appsetings.json) to get a list of t
 
     ```bash
     git clone https://github.com/bohdantiranu/BankingWebappTestTask.git
-    cd BankingWebApp
     ```
 
 2.  **Restore NuGet Packages:**:
