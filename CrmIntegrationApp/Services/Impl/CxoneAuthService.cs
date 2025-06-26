@@ -23,8 +23,9 @@ namespace CrmIntegrationApp.Services.Impl
 
         public async Task<string> GetAccessTokenAsync()
         {
-            //similar logic to CrmAuthService but also no Auth Server so Im use FakeJwtGenerator
+            //similar logic to CrmAuthService but also no Auth Server so Im using FakeJwtGenerator
             _accessToken = FakeJwtGenerator.GenerateToken("cxone_Auth_Server", "integration_app_audience", "super_secret_key_for_cxone_validation");
+            
             return _accessToken;
         }
     }
